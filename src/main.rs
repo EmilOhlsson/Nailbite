@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+// TODO This could very likely be merged with Exp
 #[derive(Debug, PartialEq, Eq)]
 enum Res {
     Integer(i32),
