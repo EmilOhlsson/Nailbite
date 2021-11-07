@@ -1,22 +1,35 @@
+use std::collections::HashMap;
+
 #[derive(Debug, PartialEq, Eq)]
 enum Res {
     Integer(i32),
+    Nothing,
 }
 
 impl Res {
     fn to_integer(self) -> i32 {
         match self {
             Res::Integer(integer) => integer,
+            _ => panic!("Unable to convert {:?} to integer", self),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Exp {
     Symbol(String),
     Integer(i32),
     List(Vec<Exp>),
     Program(Vec<Exp>),
+}
+
+impl Exp {
+    fn to_string(self) -> String {
+        match self {
+            Exp::Symbol(symbol) => symbol,
+            _ => panic!("Unable to convert {:?} to string", self),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -75,8 +88,7 @@ impl ParseState {
 
     fn complete(mut self) -> Exp {
         assert!(self.parse_stack.len() == 1);
-        let expression = self.parse_stack.pop().unwrap();
-        expression
+        self.parse_stack.pop().unwrap()
     }
 }
 
@@ -102,47 +114,85 @@ fn parse(input: &str) -> Exp {
     state.complete()
 }
 
-/// Evaluate an expression to a result
-fn eval(expression: &Exp) -> Res {
-    match expression {
-        Exp::Program(list) => {
-            let mut result: Option<Res> = None;
-            for exp in list {
-                result = Some(eval(exp));
-            }
-            result.unwrap_or(Res::Integer(0))
+struct Env {
+    symbols: Vec<HashMap<String, Exp>>,
+}
+
+impl Env {
+    fn new() -> Env {
+        Env {
+            symbols: vec![HashMap::new()],
         }
-        Exp::List(list) => {
-            if let Some(op) = list.first() {
-                println!("calling {:?}", op);
-                let args = list.iter().skip(1);
-                // TODO Search for operation in environment, and if not found check intrinsics
-                match op {
-                    Exp::Symbol(sym) => match sym.as_str() {
-                        "+" => Res::Integer(args.map(eval).map(Res::to_integer).sum()),
-                        "*" => Res::Integer(args.map(eval).map(Res::to_integer).product()),
-                        "-" => Res::Integer(
-                            args.map(eval)
-                                .map(Res::to_integer)
-                                .reduce(|a, b| a - b)
-                                .unwrap_or(0),
-                        ),
-                        "/" => Res::Integer(
-                            args.map(eval)
-                                .map(Res::to_integer)
-                                .reduce(|a, b| a / b)
-                                .unwrap_or(0),
-                        ),
-                        _ => panic!("No such operation: {:?}", op),
-                    },
-                    _ => todo!(),
+    }
+
+    fn lookup(&self, symbol: &str) -> &Exp {
+        for scope in self.symbols.iter().rev() {
+            if let Some(expr) = scope.get(symbol) {
+                return expr;
+            }
+        }
+        panic!("Symbol {:?} not found", symbol)
+    }
+
+    fn define(&mut self, symbol: String, value: Exp) {
+        self.symbols.last_mut().unwrap().insert(symbol, value);
+    }
+
+    /// Evaluate an expression to a result
+    fn eval(&mut self, expression: &Exp) -> Res {
+        match expression {
+            Exp::Program(list) => {
+                let mut result: Option<Res> = None;
+                for exp in list {
+                    result = Some(self.eval(exp));
                 }
-            } else {
-                panic!("Cannot evaluate empty list")
+                result.unwrap_or(Res::Integer(0))
+            }
+            Exp::List(list) => {
+                if let Some(op) = list.first() {
+                    println!("calling {:?}", op);
+                    let mut args = list.iter().skip(1);
+                    // TODO Search for operation in environment, and if not found check intrinsics
+                    match op {
+                        Exp::Symbol(sym) => match sym.as_str() {
+                            "define" => {
+                                let symbol = args.next().unwrap().clone().to_string();
+                                let value = args.next().unwrap().clone();
+                                self.define(symbol, value);
+                                Res::Nothing
+                            }
+                            "+" => {
+                                Res::Integer(args.map(|i| self.eval(i)).map(Res::to_integer).sum())
+                            }
+                            "*" => Res::Integer(
+                                args.map(|i| self.eval(i)).map(Res::to_integer).product(),
+                            ),
+                            "-" => Res::Integer(
+                                args.map(|i| self.eval(i))
+                                    .map(Res::to_integer)
+                                    .reduce(|a, b| a - b)
+                                    .unwrap_or(0),
+                            ),
+                            "/" => Res::Integer(
+                                args.map(|i| self.eval(i))
+                                    .map(Res::to_integer)
+                                    .reduce(|a, b| a / b)
+                                    .unwrap_or(0),
+                            ),
+                            _ => panic!("No such operation: {:?}", op),
+                        },
+                        _ => todo!(),
+                    }
+                } else {
+                    panic!("Cannot evaluate empty list")
+                }
+            }
+            Exp::Integer(integer) => Res::Integer(*integer),
+            Exp::Symbol(symbol) => {
+                let expr = self.lookup(symbol).clone();
+                self.eval(&expr)
             }
         }
-        Exp::Integer(integer) => Res::Integer(*integer),
-        Exp::Symbol(symbol) => todo!(),
     }
 }
 
@@ -150,7 +200,8 @@ fn main() {
     let simple = "(* (+ 2 2) (+ 4 4) (- 4 2) 100)";
     let program = parse(simple);
     println!("Program: {:?}", program);
-    let result = eval(&program);
+    let mut env = Env::new();
+    let result = env.eval(&program);
     println!("Result: {:?}", result);
 }
 
@@ -168,7 +219,8 @@ fn test_simple_no_nesting() {
             Integer(3)
         ])])
     );
-    let result = eval(&ast);
+    let mut env = Env::new();
+    let result = env.eval(&ast);
     assert_eq!(result, Res::Integer(6));
 }
 
@@ -185,6 +237,16 @@ fn test_simple_nesting() {
             List(vec![Symbol("+".to_string()), Integer(2), Integer(1)])
         ])])
     );
-    let result = eval(&ast);
+    let mut env = Env::new();
+    let result = env.eval(&ast);
     assert_eq!(result, Res::Integer(9));
+}
+
+#[test]
+fn test_symbols() {
+    let code = "(define a 7)(* a a)";
+    let ast = parse(code);
+    let mut env = Env::new();
+    let result = env.eval(&ast);
+    assert_eq!(result, Res::Integer(49));
 }
