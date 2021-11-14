@@ -1,29 +1,43 @@
-// TODO This could very likely be merged with Exp
+// TODO This could very likely be merged with Expr
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Exp {
+pub enum Expr {
     Symbol(String),
     Integer(i32),
-    List(Vec<Exp>),
-    Program(Vec<Exp>),
+    List(Vec<Expr>),
+    Program(Vec<Expr>),
     Nothing,
+    Procedure {
+        params: Vec<String>,
+        expr: Box<Expr>,
+    },
 }
 
-impl Exp {
+impl Expr {
     pub fn to_string(&self) -> &str {
         match self {
-            Exp::Symbol(symbol) => symbol,
+            Expr::Symbol(symbol) => symbol,
             _ => panic!("Unable to convert {:?} to string", self),
         }
+    }
+    pub fn into_string(self) -> String {
+        self.to_string().to_string()
     }
 
     pub fn to_integer(&self) -> i32 {
         match self {
-            Exp::Integer(integer) => *integer,
+            Expr::Integer(integer) => *integer,
             _ => panic!("Unable to convert {:?} to integer", self),
         }
     }
 
     pub fn into_integer(self) -> i32 {
         self.to_integer()
+    }
+
+    pub fn to_list<'a>(&'a self) -> &'a Vec<Expr> {
+        match self {
+            Expr::List(list) => list,
+            _ => panic!("Unable to convert to list"),
+        }
     }
 }

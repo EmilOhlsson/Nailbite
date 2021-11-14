@@ -1,8 +1,8 @@
-use super::expression::Exp;
+use super::expression::Expr;
 use std::collections::HashMap;
 
 pub struct Env {
-    symbols: Vec<HashMap<String, Exp>>,
+    symbols: Vec<HashMap<String, Expr>>,
 }
 
 impl Default for Env {
@@ -18,7 +18,7 @@ impl Env {
         }
     }
 
-    fn lookup(&self, symbol: &str) -> &Exp {
+    fn lookup(&self, symbol: &str) -> &Expr {
         for scope in self.symbols.iter().rev() {
             if let Some(expr) = scope.get(symbol) {
                 return expr;
@@ -27,65 +27,107 @@ impl Env {
         panic!("Symbol {:?} not found", symbol)
     }
 
-    fn define(&mut self, symbol: String, value: Exp) {
+    fn define(&mut self, symbol: String, value: Expr) {
         self.symbols.last_mut().unwrap().insert(symbol, value);
     }
 
+    fn begin_scope(&mut self) {
+        self.symbols.push(HashMap::new());
+    }
+
+    fn end_scope(&mut self) {
+        self.symbols.pop();
+    }
+
     /// Evaluate an expression to a result
-    pub fn eval(&mut self, expression: &Exp) -> Exp {
+    pub fn eval(&mut self, expression: &Expr) -> Expr {
         match expression {
-            Exp::Nothing => Exp::Nothing,
-            Exp::Program(list) => {
-                let mut result: Option<Exp> = None;
+            Expr::Nothing => Expr::Nothing,
+            Expr::Program(list) => {
+                let mut result: Option<Expr> = None;
                 for exp in list {
                     result = Some(self.eval(exp));
                 }
-                result.unwrap_or(Exp::Integer(0))
+                result.unwrap_or(Expr::Integer(0))
             }
-            Exp::List(list) => {
+            Expr::List(list) => {
                 if let Some(op) = list.first() {
                     println!("calling {:?}", op);
                     let mut args = list.iter().skip(1);
                     // TODO Search for operation in environment, and if not found check intrinsics
                     match op {
-                        Exp::Symbol(sym) => match sym.as_str() {
+                        Expr::Symbol(sym) => match sym.as_str() {
                             "define" => {
                                 let symbol = args.next().unwrap().to_string();
                                 let value = args.next().unwrap().clone();
                                 self.define(symbol.to_string(), value);
-                                Exp::Nothing
+                                Expr::Nothing
                             }
-                            "+" => Exp::Integer(
-                                args.map(|i| self.eval(i)).map(Exp::into_integer).sum(),
+                            "+" => Expr::Integer(
+                                args.map(|i| self.eval(i)).map(Expr::into_integer).sum(),
                             ),
-                            "*" => Exp::Integer(
-                                args.map(|i| self.eval(i)).map(Exp::into_integer).product(),
+                            "*" => Expr::Integer(
+                                args.map(|i| self.eval(i)).map(Expr::into_integer).product(),
                             ),
-                            "-" => Exp::Integer(
+                            "-" => Expr::Integer(
                                 args.map(|i| self.eval(i))
-                                    .map(Exp::into_integer)
+                                    .map(Expr::into_integer)
                                     .reduce(|a, b| a - b)
                                     .unwrap_or(0),
                             ),
-                            "/" => Exp::Integer(
+                            "/" => Expr::Integer(
                                 args.map(|i| self.eval(i))
-                                    .map(Exp::into_integer)
+                                    .map(Expr::into_integer)
                                     .reduce(|a, b| a / b)
                                     .unwrap_or(0),
                             ),
+                            "lambda" => {
+                                let params = args
+                                    .next()
+                                    .unwrap()
+                                    .to_list()
+                                    .iter()
+                                    .map(Expr::to_string)
+                                    .map(str::to_string)
+                                    .collect::<Vec<String>>();
+                                let expr = Box::new(args.next().unwrap().clone());
+                                Expr::Procedure { params, expr }
+                            }
+                            // TODO: Look up operation?
                             _ => panic!("No such operation: {:?}", op),
                         },
+                        Expr::List(_) => {
+                            if let Expr::Procedure { params, expr } = self.eval(op) {
+                                self.begin_scope();
+                                for (param, value) in params.iter().zip(args) {
+                                    println!("{:?} -> {:?}", param, value);
+                                    let evaluated_param = self.eval(value);
+                                    self.define(param.to_string(), evaluated_param);
+                                }
+                                let result = self.eval(&expr);
+                                self.end_scope();
+                                result
+                            } else {
+                                panic!("Unable to evalue {:?} as procedure", op)
+                            }
+                            // TODO: This should be a procedure. Pass arguments
+                            // TODO: push a new level of scoping to do lookups
+                            // TODO: Push arguments to scope
+                            // TODO: Evaluate expression using new level of scope
+                            // TODO: Return result
+                        }
                         _ => todo!(),
                     }
                 } else {
                     panic!("Cannot evaluate empty list")
                 }
             }
-            Exp::Integer(integer) => Exp::Integer(*integer),
-            Exp::Symbol(symbol) => {
+            Expr::Integer(integer) => Expr::Integer(*integer),
+            Expr::Symbol(symbol) => {
                 let expr = self.lookup(symbol).clone();
                 self.eval(&expr)
             }
+            Expr::Procedure { params: _, expr: _ } => expression.clone(),
         }
     }
 }

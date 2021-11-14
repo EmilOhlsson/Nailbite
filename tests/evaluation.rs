@@ -1,8 +1,8 @@
-use nailbite::{parse, Env, Exp};
+use nailbite::{parse, Env, Expr};
 
 #[test]
 fn test_simple_no_nesting() {
-    use Exp::*;
+    use Expr::*;
     let code = "(+ 1 2 3)";
     let ast = parse(code);
     assert_eq!(
@@ -16,12 +16,12 @@ fn test_simple_no_nesting() {
     );
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Exp::Integer(6));
+    assert_eq!(result, Expr::Integer(6));
 }
 
 #[test]
 fn test_simple_nesting() {
-    use Exp::*;
+    use Expr::*;
     let code = "(* 3 (+ 2 1))";
     let ast = parse(code);
     assert_eq!(
@@ -34,7 +34,7 @@ fn test_simple_nesting() {
     );
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Exp::Integer(9));
+    assert_eq!(result, Expr::Integer(9));
 }
 
 #[test]
@@ -43,5 +43,13 @@ fn test_symbols() {
     let ast = parse(code);
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Exp::Integer(49));
+    assert_eq!(result, Expr::Integer(49));
+}
+
+#[test]
+fn test_lambda() {
+    assert_eq!(
+        nailbite::run("((lambda (x) (* x x)) 3 3)"),
+        Expr::Integer(9)
+    );
 }
