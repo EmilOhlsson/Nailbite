@@ -1,4 +1,4 @@
-use super::expression::{Exp, Res};
+use super::expression::Exp;
 use std::collections::HashMap;
 
 pub struct Env {
@@ -32,14 +32,15 @@ impl Env {
     }
 
     /// Evaluate an expression to a result
-    pub fn eval(&mut self, expression: &Exp) -> Res {
+    pub fn eval(&mut self, expression: &Exp) -> Exp {
         match expression {
+            Exp::Nothing => Exp::Nothing,
             Exp::Program(list) => {
-                let mut result: Option<Res> = None;
+                let mut result: Option<Exp> = None;
                 for exp in list {
                     result = Some(self.eval(exp));
                 }
-                result.unwrap_or(Res::Integer(0))
+                result.unwrap_or(Exp::Integer(0))
             }
             Exp::List(list) => {
                 if let Some(op) = list.first() {
@@ -49,26 +50,26 @@ impl Env {
                     match op {
                         Exp::Symbol(sym) => match sym.as_str() {
                             "define" => {
-                                let symbol = args.next().unwrap().clone().to_string();
+                                let symbol = args.next().unwrap().to_string();
                                 let value = args.next().unwrap().clone();
-                                self.define(symbol, value);
-                                Res::Nothing
+                                self.define(symbol.to_string(), value);
+                                Exp::Nothing
                             }
-                            "+" => {
-                                Res::Integer(args.map(|i| self.eval(i)).map(Res::to_integer).sum())
-                            }
-                            "*" => Res::Integer(
-                                args.map(|i| self.eval(i)).map(Res::to_integer).product(),
+                            "+" => Exp::Integer(
+                                args.map(|i| self.eval(i)).map(Exp::into_integer).sum(),
                             ),
-                            "-" => Res::Integer(
+                            "*" => Exp::Integer(
+                                args.map(|i| self.eval(i)).map(Exp::into_integer).product(),
+                            ),
+                            "-" => Exp::Integer(
                                 args.map(|i| self.eval(i))
-                                    .map(Res::to_integer)
+                                    .map(Exp::into_integer)
                                     .reduce(|a, b| a - b)
                                     .unwrap_or(0),
                             ),
-                            "/" => Res::Integer(
+                            "/" => Exp::Integer(
                                 args.map(|i| self.eval(i))
-                                    .map(Res::to_integer)
+                                    .map(Exp::into_integer)
                                     .reduce(|a, b| a / b)
                                     .unwrap_or(0),
                             ),
@@ -80,7 +81,7 @@ impl Env {
                     panic!("Cannot evaluate empty list")
                 }
             }
-            Exp::Integer(integer) => Res::Integer(*integer),
+            Exp::Integer(integer) => Exp::Integer(*integer),
             Exp::Symbol(symbol) => {
                 let expr = self.lookup(symbol).clone();
                 self.eval(&expr)

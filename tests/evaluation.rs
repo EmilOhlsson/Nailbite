@@ -1,4 +1,4 @@
-use nailbite::{parse, Env, Exp, Res};
+use nailbite::{parse, Env, Exp};
 
 #[test]
 fn test_simple_no_nesting() {
@@ -16,7 +16,7 @@ fn test_simple_no_nesting() {
     );
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Res::Integer(6));
+    assert_eq!(result, Exp::Integer(6));
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_simple_nesting() {
     );
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Res::Integer(9));
+    assert_eq!(result, Exp::Integer(9));
 }
 
 #[test]
@@ -43,5 +43,5 @@ fn test_symbols() {
     let ast = parse(code);
     let mut env = Env::new();
     let result = env.eval(&ast);
-    assert_eq!(result, Res::Integer(49));
+    assert_eq!(result, Exp::Integer(49));
 }
