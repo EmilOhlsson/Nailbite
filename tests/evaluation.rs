@@ -53,3 +53,8 @@ fn test_lambda() {
         Expr::Integer(9)
     );
 }
+
+#[test]
+fn test_local_scope() {
+    assert_eq!(nailbite::run("(let ((a 7)) (* a a))"), Expr::Integer(49));
+}

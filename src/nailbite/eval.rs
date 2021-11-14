@@ -55,6 +55,7 @@ impl Env {
                     println!("calling {:?}", op);
                     let mut args = list.iter().skip(1);
                     // TODO Search for operation in environment, and if not found check intrinsics
+                    // TODO: Move intrinsics somewhere sensible
                     match op {
                         Expr::Symbol(sym) => match sym.as_str() {
                             "define" => {
@@ -81,6 +82,24 @@ impl Env {
                                     .reduce(|a, b| a / b)
                                     .unwrap_or(0),
                             ),
+                            "let" => {
+                                let bindings = args.next().unwrap().to_list();
+                                self.begin_scope();
+                                // local create bindings
+                                for expr in bindings {
+                                    let list = expr.to_list();
+                                    let symbol = list[0].to_string();
+                                    self.define(symbol.to_string(), list[1].clone());
+                                }
+
+                                // Evaluate body
+                                let mut result = Expr::Nothing;
+                                for expr in args {
+                                    result = self.eval(expr);
+                                }
+                                self.end_scope();
+                                result
+                            }
                             "lambda" => {
                                 let params = args
                                     .next()
@@ -93,7 +112,7 @@ impl Env {
                                 let expr = Box::new(args.next().unwrap().clone());
                                 Expr::Procedure { params, expr }
                             }
-                            // TODO: Look up operation?
+                            // TODO: lookup defined operation
                             _ => panic!("No such operation: {:?}", op),
                         },
                         Expr::List(_) => {
@@ -110,11 +129,6 @@ impl Env {
                             } else {
                                 panic!("Unable to evalue {:?} as procedure", op)
                             }
-                            // TODO: This should be a procedure. Pass arguments
-                            // TODO: push a new level of scoping to do lookups
-                            // TODO: Push arguments to scope
-                            // TODO: Evaluate expression using new level of scope
-                            // TODO: Return result
                         }
                         _ => todo!(),
                     }
