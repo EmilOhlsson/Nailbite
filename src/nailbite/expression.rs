@@ -1,4 +1,3 @@
-// TODO This could very likely be merged with Expr
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Expr {
     Symbol(String),
@@ -19,9 +18,6 @@ impl Expr {
             _ => panic!("Unable to convert {:?} to string", self),
         }
     }
-    pub fn into_string(self) -> String {
-        self.to_string().to_string()
-    }
 
     pub fn to_integer(&self) -> i32 {
         match self {
@@ -34,7 +30,7 @@ impl Expr {
         self.to_integer()
     }
 
-    pub fn to_list<'a>(&'a self) -> &'a Vec<Expr> {
+    pub fn to_list(&self) -> &Vec<Expr> {
         match self {
             Expr::List(list) => list,
             _ => panic!("Unable to convert to list"),
