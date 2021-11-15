@@ -50,6 +50,7 @@ impl Env {
                 }
                 result.unwrap_or(Expr::Integer(0))
             }
+            Expr::Bool(v) => Expr::Bool(*v),
             Expr::List(list) => {
                 if let Some(op) = list.first() {
                     println!("calling {:?}", op);

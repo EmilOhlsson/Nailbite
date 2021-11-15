@@ -6,6 +6,7 @@ struct ParseState {
     parse_buffer: Vec<char>,
     tokens: Vec<String>,
     in_symbol: bool,
+    expecting_literal: bool,
 }
 
 impl ParseState {
@@ -15,6 +16,7 @@ impl ParseState {
             parse_buffer: Vec::new(),
             tokens: Vec::new(),
             in_symbol: false,
+            expecting_literal: false,
         }
     }
 
@@ -70,11 +72,21 @@ pub fn parse(input: &str) -> Expr {
         } else if ch == ')' {
             state.complete_token();
             state.complete_list();
+        } else if ch == '#' {
+            state.complete_token();
         } else if ch.is_whitespace() {
             state.complete_token();
         } else {
-            state.parse_buffer.push(ch);
-            state.in_symbol = true;
+            if state.expecting_literal {
+                state.parse_stack.push(match ch {
+                    't' => Expr::Bool(true),
+                    'f' => Expr::Bool(false),
+                    _ => panic!("Invalid literal: {}", ch),
+                });
+            } else {
+                state.parse_buffer.push(ch);
+                state.in_symbol = true;
+            }
         }
 
         state

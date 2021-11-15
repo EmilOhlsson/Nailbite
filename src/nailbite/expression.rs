@@ -1,5 +1,6 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Expr {
+    Bool(bool),
     Symbol(String),
     Integer(i32),
     List(Vec<Expr>),
@@ -12,6 +13,13 @@ pub enum Expr {
 }
 
 impl Expr {
+    pub fn to_bool(&self) -> bool {
+        match self {
+            Expr::Bool(val) => *val,
+            _ => panic!("Unable to convert {:?} to bool", self),
+        }
+    }
+
     pub fn to_string(&self) -> &str {
         match self {
             Expr::Symbol(symbol) => symbol,
